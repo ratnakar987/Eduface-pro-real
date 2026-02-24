@@ -1,0 +1,7 @@
+{
+  "name": "EduFace Pro: School AI Management",
+  "description": "An advanced school management system featuring AI-powered facial attendance, class management, and automated fee tracking and billing.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
