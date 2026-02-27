@@ -82,10 +82,27 @@ const AttendanceScanner: React.FC = () => {
       return;
     }
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d')?.drawImage(video, 0, 0);
-    const frame = canvas.toDataURL('image/jpeg', 0.5);
+    // Downsample for speed: 400px max dimension is plenty for face matching
+    const maxDim = 400;
+    let width = video.videoWidth;
+    let height = video.videoHeight;
+    
+    if (width > height) {
+      if (width > maxDim) {
+        height *= maxDim / width;
+        width = maxDim;
+      }
+    } else {
+      if (height > maxDim) {
+        width *= maxDim / height;
+        height = maxDim;
+      }
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext('2d')?.drawImage(video, 0, 0, width, height);
+    const frame = canvas.toDataURL('image/jpeg', 0.4); // Lower quality for faster upload
 
     const db = getDB();
     const student = await identifyStudent(frame, db.students);
@@ -114,14 +131,14 @@ const AttendanceScanner: React.FC = () => {
         setIdentifiedStudent(null);
         setScanningMessage('Scanning next...');
         scanLoop();
-      }, 1500);
+      }, 800); // Reduced delay after match
     } else {
       setScanningMessage('Searching...');
       setTimeout(() => {
         if (!isScanningRef.current) return;
         setScanningMessage('Position face in center');
         scanLoop();
-      }, 1000);
+      }, 300); // Significantly reduced delay if no match
     }
   };
 
