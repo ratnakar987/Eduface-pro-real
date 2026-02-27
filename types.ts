@@ -60,6 +60,10 @@ export interface PaymentHistory {
 export interface School {
   id: string;
   schoolName: string;
+  schoolAddress: string;
+  userName: string; // This is the User ID for login
+  mobileNumber: string;
+  email: string;
   password: string;
 }
 
