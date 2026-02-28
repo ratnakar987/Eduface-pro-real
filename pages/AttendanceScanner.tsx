@@ -35,19 +35,38 @@ const AttendanceScanner: React.FC = () => {
     setIsScanning(true);
     isScanningRef.current = true;
     try {
-      // Stop existing tracks if switching
-      const existingStream = videoRef.current?.srcObject as MediaStream;
-      existingStream?.getTracks().forEach(t => t.stop());
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera API not supported in this browser.");
+      }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: mode } 
-      });
+      // Stop existing tracks if switching and nullify srcObject
+      if (videoRef.current && videoRef.current.srcObject) {
+        const existingStream = videoRef.current.srcObject as MediaStream;
+        existingStream.getTracks().forEach(t => t.stop());
+        videoRef.current.srcObject = null;
+      }
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: mode,
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          } 
+        });
+      } catch (fallbackErr) {
+        console.warn("Ideal constraints failed, falling back to basic video", fallbackErr);
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
       scanLoop();
-    } catch (err) {
-      alert("Camera access denied.");
+    } catch (err: any) {
+      console.error("Camera Error:", err);
+      alert(`Camera access error: ${err.message || "Access denied"}`);
       setIsScanning(false);
       isScanningRef.current = false;
     }
@@ -62,8 +81,11 @@ const AttendanceScanner: React.FC = () => {
   };
 
   const stopScanner = () => {
-    const stream = videoRef.current?.srcObject as MediaStream;
-    stream?.getTracks().forEach(t => t.stop());
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(t => t.stop());
+      videoRef.current.srcObject = null;
+    }
     setIsScanning(false);
     isScanningRef.current = false;
     setIdentifiedStudent(null);
@@ -82,8 +104,8 @@ const AttendanceScanner: React.FC = () => {
       return;
     }
 
-    // Downsample for speed: 400px max dimension is plenty for face matching
-    const maxDim = 400;
+    // Ultra-downsample for maximum speed: 320px is sufficient for AI face matching
+    const maxDim = 320;
     let width = video.videoWidth;
     let height = video.videoHeight;
     
@@ -102,7 +124,7 @@ const AttendanceScanner: React.FC = () => {
     canvas.width = width;
     canvas.height = height;
     canvas.getContext('2d')?.drawImage(video, 0, 0, width, height);
-    const frame = canvas.toDataURL('image/jpeg', 0.4); // Lower quality for faster upload
+    const frame = canvas.toDataURL('image/jpeg', 0.3); // Ultra-low quality for instant upload
 
     const db = getDB();
     const student = await identifyStudent(frame, db.students);
@@ -131,14 +153,14 @@ const AttendanceScanner: React.FC = () => {
         setIdentifiedStudent(null);
         setScanningMessage('Scanning next...');
         scanLoop();
-      }, 800); // Reduced delay after match
+      }, 500); // Minimal delay after match
     } else {
       setScanningMessage('Searching...');
       setTimeout(() => {
         if (!isScanningRef.current) return;
         setScanningMessage('Position face in center');
         scanLoop();
-      }, 300); // Significantly reduced delay if no match
+      }, 50); // Near-zero delay if no match - even faster now
     }
   };
 
@@ -152,15 +174,23 @@ const AttendanceScanner: React.FC = () => {
           <div className="relative aspect-video bg-black flex items-center justify-center">
             {isScanning ? (
               <>
-                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                <div className="absolute inset-0 border-[60px] border-black/40 pointer-events-none">
-                  <div className="w-full h-full border-2 border-indigo-400/50 rounded-xl relative">
-                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-0.5 bg-indigo-400 animate-[scan_2s_linear_infinite]"></div>
-                  </div>
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  muted
+                  className="w-full h-full object-cover" 
+                />
+                
+                {/* Reliable Circular Cutout using Box Shadow */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[65%] aspect-square rounded-full border-4 border-indigo-400/80 pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] z-10 overflow-hidden">
+                  {/* Scanning Line */}
+                  <div className="absolute top-0 left-0 w-full h-1 bg-indigo-400 shadow-[0_0_15px_rgba(129,140,248,1)] animate-[scan_1.5s_ease-in-out_infinite]"></div>
                 </div>
+
                 <button 
                   onClick={toggleCamera}
-                  className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white px-3 py-1.5 rounded-lg border border-white/30 backdrop-blur-sm text-xs font-bold transition-all"
+                  className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white px-3 py-1.5 rounded-lg border border-white/30 backdrop-blur-sm text-xs font-bold transition-all z-10"
                 >
                   🔄 Switch Camera
                 </button>
@@ -188,12 +218,15 @@ const AttendanceScanner: React.FC = () => {
             )}
 
             {identifiedStudent && (
-              <div className="absolute inset-0 bg-indigo-600/90 flex flex-col items-center justify-center text-white animate-in zoom-in duration-200">
-                <div className="w-24 h-24 rounded-full bg-white text-indigo-600 flex items-center justify-center text-4xl mb-4 font-bold shadow-2xl">
+              <div className="absolute inset-0 bg-emerald-600/95 flex flex-col items-center justify-center text-white animate-in zoom-in duration-300 z-20">
+                <div className="w-40 h-40 rounded-full bg-white text-emerald-600 flex items-center justify-center text-8xl mb-6 font-bold shadow-[0_0_50px_rgba(255,255,255,0.4)] animate-bounce">
                   ✓
                 </div>
-                <h3 className="text-2xl font-bold">Verified</h3>
-                <p className="text-indigo-100 text-lg mt-1">{identifiedStudent.fullName}</p>
+                <h3 className="text-4xl font-black tracking-tight">ATTENDANCE LOGGED</h3>
+                <p className="text-emerald-50 text-xl mt-2 font-medium">{identifiedStudent.fullName}</p>
+                <div className="mt-8 px-6 py-2 bg-white/20 rounded-full text-sm font-bold backdrop-blur-md">
+                  ID: {identifiedStudent.id}
+                </div>
               </div>
             )}
           </div>

@@ -27,18 +27,37 @@ const StudentRegistration: React.FC = () => {
     setError(null);
     setSuccess(null);
     try {
-      // Stop existing tracks if any
-      const existingStream = videoRef.current?.srcObject as MediaStream;
-      existingStream?.getTracks().forEach(t => t.stop());
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera API not supported in this browser.");
+      }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: mode, width: 1280, height: 720 } 
-      });
+      // Stop existing tracks if any and nullify srcObject
+      if (videoRef.current && videoRef.current.srcObject) {
+        const existingStream = videoRef.current.srcObject as MediaStream;
+        existingStream.getTracks().forEach(t => t.stop());
+        videoRef.current.srcObject = null;
+      }
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: mode, 
+            width: { ideal: 1280 }, 
+            height: { ideal: 720 } 
+          } 
+        });
+      } catch (fallbackErr) {
+        console.warn("Ideal constraints failed, falling back to basic video", fallbackErr);
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-    } catch (err) {
-      setError("Unable to access camera. Please allow permissions.");
+    } catch (err: any) {
+      console.error("Camera Error:", err);
+      setError(`Unable to access camera: ${err.message || "Please allow permissions."}`);
       setIsCapturing(false);
     }
   };
@@ -69,8 +88,11 @@ const StudentRegistration: React.FC = () => {
   };
 
   const stopCamera = () => {
-    const stream = videoRef.current?.srcObject as MediaStream;
-    stream?.getTracks().forEach(t => t.stop());
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(t => t.stop());
+      videoRef.current.srcObject = null;
+    }
     setIsCapturing(false);
   };
 
