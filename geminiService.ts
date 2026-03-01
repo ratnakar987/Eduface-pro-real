@@ -11,10 +11,20 @@ export async function checkDuplicateFace(capturedBase64: string, registeredStude
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  // Ultra-lean gallery: check only the last 20 students for maximum speed
-  const gallery = registeredStudents.slice(-20);
+  // Increased gallery size to 100 for better coverage
+  const gallery = registeredStudents.slice(-100);
 
-  const prompt = `Match Image 1 to one of these IDs: ${gallery.map(g => g.id).join(', ')}. Return ID or "NEW".`;
+  const prompt = `
+    IDENTITY MATCHING PROTOCOL:
+    Target: Image 1
+    Gallery: Subsequent images
+    
+    Task: Identify if the person in Image 1 matches anyone in the gallery.
+    Compare facial features, bone structure, and unique identifiers.
+    
+    Respond with the Student ID of the match, or "NEW" if no match is found.
+    IDs to check: ${gallery.map(g => g.id).join(', ')}
+  `;
 
   try {
     const parts = [
@@ -26,7 +36,7 @@ export async function checkDuplicateFace(capturedBase64: string, registeredStude
     ];
 
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-lite-latest', // Faster model for vision tasks
+      model: 'gemini-3-flash-preview', // State-of-the-art model for vision accuracy
       contents: { parts },
       config: {
         thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -46,7 +56,7 @@ export async function checkDuplicateFace(capturedBase64: string, registeredStude
       return registeredStudents.find(s => s.id === result) || null;
     }
   } catch (error: any) {
-    console.error("Fast Biometric Check Failed:", error);
+    console.error("Biometric Verification Failed:", error);
   }
 
   return null;

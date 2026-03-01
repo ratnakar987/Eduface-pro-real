@@ -104,8 +104,8 @@ const AttendanceScanner: React.FC = () => {
       return;
     }
 
-    // Ultra-downsample for maximum speed: 320px is sufficient for AI face matching
-    const maxDim = 320;
+    // Increased resolution for better AI recognition accuracy
+    const maxDim = 480;
     let width = video.videoWidth;
     let height = video.videoHeight;
     
@@ -124,7 +124,7 @@ const AttendanceScanner: React.FC = () => {
     canvas.width = width;
     canvas.height = height;
     canvas.getContext('2d')?.drawImage(video, 0, 0, width, height);
-    const frame = canvas.toDataURL('image/jpeg', 0.3); // Ultra-low quality for instant upload
+    const frame = canvas.toDataURL('image/jpeg', 0.5); // Better quality for AI accuracy
 
     const db = getDB();
     const student = await identifyStudent(frame, db.students);
@@ -182,8 +182,8 @@ const AttendanceScanner: React.FC = () => {
                   className="w-full h-full object-cover" 
                 />
                 
-                {/* Reliable Circular Cutout using Box Shadow */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[65%] aspect-square rounded-full border-4 border-indigo-400/80 pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] z-10 overflow-hidden">
+                {/* Responsive Circular Cutout using Box Shadow */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(75%,420px)] aspect-square rounded-full border-4 border-indigo-400/80 pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] z-10 overflow-hidden">
                   {/* Scanning Line */}
                   <div className="absolute top-0 left-0 w-full h-1 bg-indigo-400 shadow-[0_0_15px_rgba(129,140,248,1)] animate-[scan_1.5s_ease-in-out_infinite]"></div>
                 </div>
